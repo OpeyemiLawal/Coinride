@@ -117,9 +117,16 @@ async function transferTokens(destinationWallet, amount) {
       rawAmount,
     ),
   );
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = keypair.publicKey;
 
   const sig = await connection.sendTransaction(tx, [keypair]);
-  await connection.confirmTransaction(sig, 'confirmed');
+  await connection.confirmTransaction({
+    signature: sig,
+    blockhash,
+    lastValidBlockHeight,
+  }, 'confirmed');
   return sig;
 }
 

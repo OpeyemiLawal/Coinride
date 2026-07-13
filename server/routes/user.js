@@ -3,6 +3,13 @@ const router = express.Router();
 const supabase = require('../supabase');
 const { authMiddleware } = require('../middleware/auth');
 
+function withTimeout(promise, timeoutMs, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), timeoutMs)),
+  ]);
+}
+
 const COIN_ID_MAP = {
   btc: 'bitcoin', eth: 'ethereum', sol: 'solana', doge: 'dogecoin',
   ada: 'cardano', xrp: 'ripple', dot: 'polkadot', avax: 'avalanche-2',
@@ -758,7 +765,11 @@ router.post('/claim-all', async (req, res) => {
   // 3. Initiate the Solana token transfer
   const solana = require('../solana');
   try {
-    const sig = await solana.transferTokens(wallet, total);
+    const sig = await withTimeout(
+      solana.transferTokens(wallet, total),
+      35000,
+      'Solana transfer timed out',
+    );
 
     // Sync DB ride_balance to match on-chain balance after transfer
     try {

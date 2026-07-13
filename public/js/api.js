@@ -17,19 +17,33 @@ const API = (() => {
     localStorage.removeItem('cr_token');
   }
 
-  async function request(method, path, body) {
+  async function request(method, path, body, options = {}) {
+    const controller = options.timeoutMs ? new AbortController() : null;
+    const timeout = controller
+      ? setTimeout(() => controller.abort(), options.timeoutMs)
+      : null;
     const opts = {
       method,
       headers: { 'Content-Type': 'application/json' },
+      ...(controller ? { signal: controller.signal } : {}),
     };
     const token = getToken();
     if (token) opts.headers['Authorization'] = 'Bearer ' + token;
     if (body !== undefined) opts.body = JSON.stringify(body);
 
-    const res = await fetch(path, opts);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
-    return data;
+    try {
+      const res = await fetch(path, opts);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error(options.timeoutMessage || 'Request timed out. Please try again.');
+      }
+      throw err;
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
   }
 
   // Auth
@@ -109,7 +123,10 @@ const API = (() => {
   }
 
   async function claimAll() {
-    return request('POST', '/api/user/claim-all');
+    return request('POST', '/api/user/claim-all', undefined, {
+      timeoutMs: 45000,
+      timeoutMessage: 'Airdrop is taking too long. Please refresh rewards and try again.',
+    });
   }
 
   return {
