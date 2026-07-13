@@ -10,6 +10,8 @@ function withTimeout(promise, timeoutMs, message) {
   ]);
 }
 
+const activeClaims = new Set();
+
 const COIN_ID_MAP = {
   btc: 'bitcoin', eth: 'ethereum', sol: 'solana', doge: 'dogecoin',
   ada: 'cardano', xrp: 'ripple', dot: 'polkadot', avax: 'avalanche-2',
@@ -526,11 +528,21 @@ router.post('/wallet-balance', async (req, res) => {
 
   try {
     const solana = require('../solana');
-    const [sol, ride] = await Promise.all([
+    const [solResult, rideResult] = await Promise.allSettled([
       solana.getSolBalance(address),
       solana.getTokenBalance(address),
     ]);
-    res.json({ sol, ride });
+    const balanceErrors = {};
+    if (solResult.status === 'rejected') balanceErrors.sol = solResult.reason.message;
+    if (rideResult.status === 'rejected') balanceErrors.ride = rideResult.reason.message;
+    if (balanceErrors.sol && balanceErrors.ride) {
+      return res.status(500).json({ error: 'Unable to fetch wallet balances', balanceErrors });
+    }
+    res.json({
+      sol: solResult.status === 'fulfilled' ? solResult.value : null,
+      ride: rideResult.status === 'fulfilled' ? rideResult.value : null,
+      ...(Object.keys(balanceErrors).length ? { balanceErrors } : {}),
+    });
   } catch (err) {
     console.error('wallet-balance error:', err.message);
     res.status(500).json({ error: err.message });
@@ -699,12 +711,20 @@ router.get('/claimable-rewards', async (req, res) => {
 // POST /api/user/claim-all — transfer all rewards via Solana treasury tx
 router.post('/claim-all', async (req, res) => {
   const { wallet } = req.user;
+  if (wallet.startsWith('0x')) {
+    return res.status(400).json({ error: 'Airdrop requires a Solana wallet.' });
+  }
+  if (activeClaims.has(wallet)) {
+    return res.status(409).json({ error: 'Airdrop already in progress. Please wait.' });
+  }
+  activeClaims.add(wallet);
 
-  // 1. Fetch eligible predictions and rides to target their specific IDs
-  const [predRes, rideRes] = await Promise.all([
-    supabase.from('predictions').select('id, reward').eq('wallet', wallet).eq('hit', true).eq('claimed', false),
-    supabase.from('ride_rewards').select('id, reward').eq('wallet', wallet).eq('claimed', false),
-  ]);
+  try {
+    // 1. Fetch eligible predictions and rides to target their specific IDs
+    const [predRes, rideRes] = await Promise.all([
+      supabase.from('predictions').select('id, reward').eq('wallet', wallet).eq('hit', true).eq('claimed', false),
+      supabase.from('ride_rewards').select('id, reward').eq('wallet', wallet).eq('claimed', false),
+    ]);
 
   if (predRes.error) return res.status(500).json({ error: predRes.error.message });
   if (rideRes.error) return res.status(500).json({ error: rideRes.error.message });
@@ -720,56 +740,49 @@ router.post('/claim-all', async (req, res) => {
     return res.status(500).json({ error: 'Treasury not configured' });
   }
 
-  // 2. Perform atomic updates marking targeted records as claimed = true
-  let claimedPreds = [];
-  let claimedRides = [];
-
-  if (predIds.length > 0) {
-    const { data, error } = await supabase
-      .from('predictions')
-      .update({ claimed: true })
-      .in('id', predIds)
-      .eq('wallet', wallet)
-      .eq('hit', true)
-      .eq('claimed', false)
-      .select('id, reward');
-    if (error) return res.status(500).json({ error: error.message });
-    claimedPreds = data || [];
-  }
-
-  if (rideIds.length > 0) {
-    const { data, error } = await supabase
-      .from('ride_rewards')
-      .update({ claimed: true })
-      .in('id', rideIds)
-      .eq('wallet', wallet)
-      .eq('claimed', false)
-      .select('id, reward');
-    if (error) {
-      // Rollback predictions
-      if (claimedPreds.length > 0) {
-        await supabase.from('predictions').update({ claimed: false }).in('id', claimedPreds.map(p => p.id));
-      }
-      return res.status(500).json({ error: error.message });
-    }
-    claimedRides = data || [];
-  }
-
-  const total = claimedPreds.reduce((s, p) => s + p.reward, 0) +
-                claimedRides.reduce((s, r) => s + r.reward, 0);
+  const total = (predRes.data || []).reduce((s, p) => s + Number(p.reward || 0), 0) +
+                (rideRes.data || []).reduce((s, r) => s + Number(r.reward || 0), 0);
 
   if (total <= 0) {
-    return res.status(400).json({ error: 'Nothing to claim (already claimed)' });
+    return res.status(400).json({ error: 'Nothing to claim' });
   }
 
-  // 3. Initiate the Solana token transfer
+  // Transfer first. Only mark rewards claimed after the chain confirms.
+  // This prevents failed/timeout airdrops from disappearing from the dashboard.
   const solana = require('../solana');
-  try {
-    const sig = await withTimeout(
+  const sig = await withTimeout(
       solana.transferTokens(wallet, total),
       35000,
       'Solana transfer timed out',
-    );
+  );
+
+    const [claimPredRes, claimRideRes] = await Promise.all([
+      predIds.length > 0
+        ? supabase
+            .from('predictions')
+            .update({ claimed: true })
+            .in('id', predIds)
+            .eq('wallet', wallet)
+            .eq('hit', true)
+            .eq('claimed', false)
+        : Promise.resolve({ error: null }),
+      rideIds.length > 0
+        ? supabase
+            .from('ride_rewards')
+            .update({ claimed: true })
+            .in('id', rideIds)
+            .eq('wallet', wallet)
+            .eq('claimed', false)
+        : Promise.resolve({ error: null }),
+    ]);
+
+    if (claimPredRes.error || claimRideRes.error) {
+      console.error('claim-all post-transfer DB update failed:', claimPredRes.error || claimRideRes.error);
+      return res.status(500).json({
+        error: 'Airdrop sent, but rewards could not be marked claimed. Contact support with signature: ' + sig,
+        signature: sig,
+      });
+    }
 
     // Sync DB ride_balance to match on-chain balance after transfer
     try {
@@ -781,17 +794,10 @@ router.post('/claim-all', async (req, res) => {
 
     res.json({ success: true, amount: total, signature: sig });
   } catch (err) {
-    console.error('claim-all failed, rolling back claim states:', err.message);
-
-    // 4. Rollback claimed states on blockchain transfer failure
-    if (claimedPreds.length > 0) {
-      await supabase.from('predictions').update({ claimed: false }).in('id', claimedPreds.map(p => p.id)).catch(() => {});
-    }
-    if (claimedRides.length > 0) {
-      await supabase.from('ride_rewards').update({ claimed: false }).in('id', claimedRides.map(r => r.id)).catch(() => {});
-    }
-
+    console.error('claim-all failed:', err.message);
     res.status(500).json({ error: 'Blockchain transfer failed: ' + err.message });
+  } finally {
+    activeClaims.delete(wallet);
   }
 });
 

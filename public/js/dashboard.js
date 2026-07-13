@@ -149,11 +149,19 @@
     const balanceData = balanceResult.status === 'fulfilled' ? balanceResult.value : { sol: null, ride: null };
     const { sol: solBalance, ride: rideBalance } = balanceData;
     const displayRideBalance = syncedRideBalance !== null ? syncedRideBalance : rideBalance;
+    const balanceErrors = balanceData.balanceErrors || {};
 
     // SOL balance: EVM wallets don't have a Solana address, show 'N/A'
-    solBalanceEl.textContent = isEVM ? 'N/A (EVM)' : (solBalance !== null && solBalance !== undefined ? solBalance.toFixed(6) + ' SOL' : '--');
+    solBalanceEl.textContent = isEVM
+      ? 'N/A (EVM)'
+      : (solBalance !== null && solBalance !== undefined ? solBalance.toFixed(6) + ' SOL' : '--');
     // RIDE balance: use DB balance for EVM wallets (earned in-game, stored in DB)
-    rideBalanceEl.textContent = displayRideBalance !== null && displayRideBalance !== undefined ? displayRideBalance.toFixed(displayRideBalance < 1 ? 4 : 2) + ' RIDE' : '--';
+    rideBalanceEl.textContent = displayRideBalance !== null && displayRideBalance !== undefined
+      ? displayRideBalance.toFixed(displayRideBalance < 1 ? 4 : 2) + ' RIDE'
+      : '--';
+    if (balanceErrors.sol || balanceErrors.ride || balanceResult.status === 'rejected') {
+      showToast('Some wallet balances could not be loaded. Check RPC and token mint settings.', true);
+    }
 
 
     // Apply predictions (prefer server data)

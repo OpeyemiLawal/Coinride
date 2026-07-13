@@ -131,7 +131,7 @@ async function transferTokens(destinationWallet, amount) {
 }
 
 async function getTokenBalance(walletAddress) {
-  if (!RIDE_TOKEN_MINT) return 0;
+  if (!RIDE_TOKEN_MINT) throw new Error('RIDE_TOKEN_MINT not set');
   try {
     const { PublicKey } = await getWeb3();
     const { getAssociatedTokenAddress, getAccount } = await getSplToken();
@@ -147,8 +147,16 @@ async function getTokenBalance(walletAddress) {
     const account = await getAccount(connection, ataAddress);
     return Number(account.amount) / 1_000_000_000;
   } catch (e) {
-    // No token account yet for this address — balance is simply 0.
-    return 0;
+    if (
+      e.name === 'TokenAccountNotFoundError' ||
+      e.name === 'TokenInvalidAccountOwnerError' ||
+      /could not find account|invalid account owner/i.test(e.message || '')
+    ) {
+      // No token account yet for this address — balance is simply 0.
+      return 0;
+    }
+    console.error('getTokenBalance error:', e.message);
+    throw e;
   }
 }
 
@@ -160,11 +168,27 @@ async function getSolBalance(walletAddress) {
     const lamports = await connection.getBalance(pubkey);
     return lamports / 1_000_000_000;
   } catch (e) {
-    console.error('getSolBalance error for %s: %s', walletAddress, e.message);
+    console.error('getSolBalance error:', e.message);
+    throw e;
+  }
+}
+
+async function getSolBalanceOrZero(walletAddress) {
+  try {
+    return await getSolBalance(walletAddress);
+  } catch (_) {
+    return 0;
+  }
+}
+
+async function getTokenBalanceOrZero(walletAddress) {
+  try {
+    return await getTokenBalance(walletAddress);
+  } catch (_) {
     return 0;
   }
 }
 
 initTreasury();
 
-module.exports = { transferTokens, getTokenBalance, getSolBalance };
+module.exports = { transferTokens, getTokenBalance, getSolBalance, getSolBalanceOrZero, getTokenBalanceOrZero };
