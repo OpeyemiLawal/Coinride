@@ -95,8 +95,14 @@ app.use('/api/leaderboard', leaderboardLimiter, leaderboardRoutes);
 
 // Public config endpoint
 app.get('/api/config', (req, res) => {
+  const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY || '';
   res.json({
-    turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || '',
+    turnstileSiteKey,
+    turnstileSiteKeyPreview: turnstileSiteKey
+      ? `${turnstileSiteKey.slice(0, 8)}...${turnstileSiteKey.slice(-6)}`
+      : '',
+    hostname: req.hostname,
+    production: process.env.NODE_ENV === 'production',
   });
 });
 

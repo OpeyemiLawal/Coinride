@@ -2911,6 +2911,21 @@
     await waitForTurnstileScript();
 
     return new Promise((resolve, reject) => {
+      const turnstileErrorMessage = (code) => {
+        if (String(code) === '110200') {
+          return 'Captcha domain is not authorized. Add ' + window.location.hostname + ' to the Turnstile widget in Cloudflare.';
+        }
+        if (String(code) === '110100' || String(code) === '110110' || String(code) === '400020') {
+          return 'Captcha site key is invalid. Check the Turnstile site key in your deployment settings.';
+        }
+        if (String(code) === '400070') {
+          return 'Captcha site key is disabled in Cloudflare.';
+        }
+        if (String(code) === '200500') {
+          return 'Captcha could not load. Please disable blockers for this site and try again.';
+        }
+        return 'Captcha failed. Please try again.';
+      };
       let finished = false;
       const finish = (err, token) => {
         if (finished) return;
@@ -2938,7 +2953,10 @@
           size: 'normal',
           theme: 'dark',
           callback: (t) => { finish(null, t); },
-          'error-callback': () => { finish(new Error('Captcha failed. Please try again.')); },
+          'error-callback': (code) => {
+            console.warn('Turnstile client error:', code);
+            finish(new Error(turnstileErrorMessage(code)));
+          },
           'expired-callback': () => { finish(new Error('Captcha expired. Please try again.')); }
         });
       } catch (e) {
