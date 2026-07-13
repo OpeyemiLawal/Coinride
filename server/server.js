@@ -15,6 +15,9 @@ const userRoutes = require('./routes/user');
 // Environment validation
 // ---------------------------------------------------------------------------
 const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'JWT_SECRET', 'RPC_URL', 'TURNSTILE_SECRET_KEY'];
+if (process.env.NODE_ENV === 'production') {
+  REQUIRED_ENV.push('TURNSTILE_SITE_KEY');
+}
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
     console.error(`FATAL: Missing required environment variable: ${key}`);

@@ -2854,36 +2854,79 @@
   });
 
   // Fetch Turnstile site key
-  fetch('/api/config').then(r => r.json()).then(cfg => {
+  const turnstileConfigReady = fetch('/api/config').then(r => r.json()).then(cfg => {
     window._turnstileSiteKey = cfg.turnstileSiteKey || '';
     if (!window._turnstileSiteKey) console.warn('Turnstile: missing site key');
   }).catch(() => {});
 
   let turnstileWidgetId = null;
-  function getTurnstileToken() {
-    if (!window._turnstileSiteKey || typeof turnstile === 'undefined') {
-      return Promise.resolve('');
+  function waitForTurnstileScript(timeoutMs = 5000) {
+    if (typeof turnstile !== 'undefined') return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const startedAt = Date.now();
+      const timer = setInterval(() => {
+        if (typeof turnstile !== 'undefined') {
+          clearInterval(timer);
+          resolve();
+        } else if (Date.now() - startedAt >= timeoutMs) {
+          clearInterval(timer);
+          reject(new Error('Captcha service did not load. Please disable blockers for this site and try again.'));
+        }
+      }, 100);
+    });
+  }
+
+  async function getTurnstileToken() {
+    await turnstileConfigReady;
+    if (!window._turnstileSiteKey) {
+      throw new Error('Captcha is not configured for this site.');
     }
-    return new Promise((resolve) => {
+    await waitForTurnstileScript();
+
+    return new Promise((resolve, reject) => {
+      let finished = false;
+      const finish = (err, token) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeout);
+        if (err) reject(err);
+        else resolve(token);
+      };
+      const timeout = setTimeout(() => {
+        finish(new Error('Captcha timed out. Please try again.'));
+      }, 15000);
+
       try {
         let container = document.getElementById('turnstile-container');
         if (!container) {
           container = document.createElement('div');
           container.id = 'turnstile-container';
-          container.style.display = 'none';
+          container.style.position = 'fixed';
+          container.style.left = '-9999px';
+          container.style.top = '0';
+          container.style.width = '1px';
+          container.style.height = '1px';
+          container.style.overflow = 'hidden';
           document.body.appendChild(container);
         }
-        container.innerHTML = ''; // Clear previous widget
+        if (turnstileWidgetId !== null) {
+          turnstile.remove(turnstileWidgetId);
+          turnstileWidgetId = null;
+        }
+        container.innerHTML = '';
         
-        turnstileWidgetId = turnstile.render('#turnstile-container', {
+        turnstileWidgetId = turnstile.render(container, {
           sitekey: window._turnstileSiteKey,
-          callback: (t) => { resolve(t); },
-          'error-callback': () => { resolve(''); },
-          'expired-callback': () => { resolve(''); }
+          size: 'invisible',
+          execution: 'execute',
+          callback: (t) => { finish(null, t); },
+          'error-callback': () => { finish(new Error('Captcha failed. Please try again.')); },
+          'expired-callback': () => { finish(new Error('Captcha expired. Please try again.')); }
         });
+        turnstile.execute(turnstileWidgetId);
       } catch (e) {
         console.warn('Turnstile error:', e);
-        resolve('');
+        finish(new Error('Captcha could not start. Please refresh and try again.'));
       }
     });
   }
