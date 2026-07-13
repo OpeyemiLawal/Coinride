@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CoinRide | Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="dashboard-page">
+  <header class="topbar">
+    <a href="/" class="logo-link"><h1 class="logo">Coin<span>Ride</span></h1></a>
+    <div class="topbar-right">
+      <a href="index.html" class="btn-dashboard">HOMEPAGE</a>
+    </div>
+  </header>
+  <main class="container">
+    <div class="dashboard-loading" id="dashLoading">
+      <div class="dashboard-loading-spinner"></div>
+      <div class="dashboard-loading-text">Loading your dashboard...</div>
+    </div>
+    <div class="dashboard-page-body" id="dashContent" style="display:none">
+      <div class="dashboard-page-header">
+        <h2 class="dashboard-page-title"><span>●</span> Dashboard</h2>
+        <div class="dashboard-user-info">
+          <span id="dashAddress" class="dashboard-address"></span>
+          <span class="dashboard-badge">&#9679; Connected</span>
+        </div>
+      </div>
+      <div class="dashboard-balances">
+        <div class="balance-card balance-card-ride">
+          <span class="balance-label"><span class="dot dot-ride"></span> RIDE Balance</span>
+          <span class="balance-value balance-value-ride" id="dashRideBalance">0</span>
+        </div>
+        <div class="balance-card balance-card-sol">
+          <span class="balance-label"><span class="dot dot-sol"></span> SOL Balance</span>
+          <span class="balance-value balance-value-sol" id="dashSolBalance">--</span>
+        </div>
+      </div>
+      <div class="dashboard-section">
+        <div class="dashboard-section-header">
+          <h3 class="dashboard-section-title">Prediction History</h3>
+          <span class="dashboard-section-count" id="dashPredCount">0</span>
+        </div>
+        <div class="dashboard-table-wrap">
+          <table class="dashboard-table">
+            <thead>
+              <tr>
+                <th class="th-coin">Coin</th>
+                <th class="th-date">Date</th>
+                <th class="th-pred">Prediction</th>
+                <th class="th-target">Target</th>
+                <th class="th-status">Status</th>
+                <th class="th-reward">Reward</th>
+              </tr>
+            </thead>
+            <tbody id="dashPredHistory">
+              <tr><td colspan="6" class="dashboard-empty">No predictions yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="predPagination"></div>
+      </div>
+      <div class="dashboard-section">
+        <div class="dashboard-section-header">
+          <h3 class="dashboard-section-title">Claim Rewards</h3>
+          <span class="dashboard-section-count" id="dashClaimCount">0</span>
+        </div>
+        <div id="dashClaimList" class="claim-list">
+          <p class="dashboard-empty">No rewards to claim.</p>
+        </div>
+        <div class="pagination" id="claimPagination"></div>
+        <div class="claim-all-bar">
+          <div class="claim-all-total">
+            <span class="claim-all-label">Total unclaimed</span>
+            <span class="claim-all-value" id="dashClaimTotal">0 RIDE</span>
+          </div>
+          <button id="dashClaimAllBtn" class="claim-all-btn">Nothing to Claim</button>
+        </div>
+      </div>
+      <button id="dashDisconnectBtn" class="dashboard-disconnect">Disconnect Wallet</button>
+    </div>
+  </main>
+  <div id="dashToast" class="toast hidden">
+    <span class="toast-message"></span>
+  </div>
+  <footer class="footer">
+    <p>CAAAAAAAAAAAAAAAAA</p>
+  </footer>
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

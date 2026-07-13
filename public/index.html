@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Primary Meta -->
+  <title>CoinRide | Gamified Prediction Market on Solana</title>
+  <meta name="description" content="Analyze coins and stocks, predict market moves, and ride the charts with unique vehicle assets to earn RIDE tokens." />
+  <meta name="keywords" content="CoinRide, RIDE token, Solana, crypto game, coin analysis, stock market, chart prediction, crypto gaming, DeFi" />
+  <meta name="author" content="CoinRide" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://coinride.fun/" />
+
+    <!-- Preload -->
+  <link rel="preload" href="favicon.png" as="image">
+  <link rel="preload" href="assets/home.png" as="image">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="shortcut icon" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+
+  <!-- Open Graph (Facebook, Telegram, Discord, WhatsApp, etc.) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://coinride.fun/" />
+  <meta property="og:title" content="CoinRide | Gamified Prediction Market on Solana" />
+  <meta property="og:description" content="Analyze coins and stocks, predict market moves, and ride the charts with unique vehicle assets to earn RIDE tokens." />
+  <meta property="og:image" content="https://coinride.fun/favicon.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="CoinRide logo" />
+  <meta property="og:site_name" content="CoinRide" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:site" content="@coinridefun" />
+  <meta name="twitter:creator" content="@muellas" />
+  <meta name="twitter:title" content="CoinRide | Gamified Prediction Market on Solana" />
+  <meta name="twitter:description" content="Analyze coins and stocks, predict market moves, and ride the charts with unique vehicle assets to earn RIDE tokens." />
+  <meta name="twitter:image" content="https://coinride.fun/favicon.png" />
+  <meta name="twitter:image:alt" content="CoinRide logo" />
+
+  <!-- Theme / PWA -->
+  <meta name="theme-color" content="#00e5a0" />
+  <meta name="application-name" content="CoinRide" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="CoinRide | Gamified Prediction Market on Solana" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="logo-link"><h1 class="logo">Coin<span>Ride</span></h1></a>
+    <div class="topbar-right">
+      <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+      <div id="walletDashboard" class="wallet-dashboard hidden">
+        <a href="dashboard.html" class="btn-dashboard">Dashboard</a>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="search-panel">
+      <h2>Find a Coin <span class="lb-subtitle">(or Stock)</span></h2>
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <input id="tickerInput" type="text" placeholder="SOL, BTC, SPCX, etc." autocomplete="off" />
+          <div id="suggestions" class="suggestions hidden"></div>
+        </div>
+        <button id="loadChartBtn" class="btn btn-primary"><span class="spinner hidden" id="loadChartSpinner"></span><span id="loadChartLabel">Load Chart</span></button>
+      </div>
+      <p class="hint">Enter a ticker, analyze the chart, make a prediction to earn RIDE, and ride the chart to earn RIDE.</p>
+    </section>
+    <section class="game-panel">
+      <div class="game-header">
+        <div class="chart-info">
+          <div class="chart-name">Chart <span id="chartNameText">--</span><span id="currentCoin" class="hidden"></span></div>
+          <div class="chart-timeframe">Timeframe — <span id="chartTimeframeText">3M</span></div>
+        </div>
+        <div class="timeframe-selector" id="timeframeSelector">
+          <button class="timeframe-btn active" data-timeframe="3M">3M</button>
+          <button class="timeframe-btn" data-timeframe="6M">6M</button>
+          <button class="timeframe-btn" data-timeframe="1Y">1Y</button>
+          <button class="timeframe-btn" data-timeframe="ALL">ALL</button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="gameCanvas" width="900" height="400"></canvas>
+        <div id="chartTooltip" class="chart-tooltip hidden"></div>
+        <!-- Prediction overlay: bottom-right, shown after chart loads -->
+        <div id="predictionBox" class="prediction-box hidden">
+          <p class="pred-question" id="predQuestion"></p>
+          <div class="pred-btns">
+            <button id="predYes" class="btn btn-success">Yes</button>
+            <button id="predNo" class="btn btn-secondary">No</button>
+          </div>
+        </div>
+      </div>
+      <!-- Ready to ride prompt -->
+      <div id="readyPrompt" class="ready-prompt hidden">
+        <p>Ready to ride the chart?</p>
+        <div class="asset-selector" id="assetSelector">
+          <label>Choose your asset:</label>
+          <div class="asset-options" id="assetOptions"></div>
+        </div>
+        <button id="confirmRideBtn" class="btn btn-success">Let's Ride!</button>
+      </div>
+      <div id="introModal" class="intro-modal hidden">
+        <div class="intro-panel">
+          <div class="intro-icon">📉</div>
+          <h2 class="intro-title">Race the Chart</h2>
+          <p class="intro-desc">Finish the track in <strong>25 seconds or less</strong> to earn the full <strong class="intro-highlight"><span id="introMaxReward">100</span> RIDE</strong> reward.</p>
+          <p class="intro-desc">Every second longer reduces your reward. The faster you ride, the more you earn.</p>
+          <div class="intro-time-table">
+            <div class="intro-time-row"><span>&le; 25s</span><span class="intro-highlight"><span id="introRewardFull">100</span> RIDE</span></div>
+            <div class="intro-time-row"><span>30s</span><span><span id="introReward30">90</span> RIDE</span></div>
+            <div class="intro-time-row"><span>35s</span><span><span id="introReward35">80</span> RIDE</span></div>
+            <div class="intro-time-row"><span>45s</span><span><span id="introReward45">60</span> RIDE</span></div>
+            <div class="intro-time-row"><span>60s +</span><span><span id="introRewardMin">10</span> RIDE</span></div>
+          </div>
+          <button id="introStartBtn" class="intro-btn">Let's Ride!</button>
+        </div>
+      </div>
+      <div class="hud">
+        <div class="hud-item">Distance: <span id="distanceScore">0</span> m</div>
+        <div class="hud-item">Rewards: <span id="rewards">RIDE</span></div>
+        <div class="hud-item">Status: <span id="rideStatus">Idle</span></div>
+        <div class="hud-item" id="predResultHud" style="display:none">Prediction: <span id="predResultText">--</span></div>
+      </div>
+      <div class="controls">
+        <button id="resetRideBtn" class="btn btn-secondary">Reset</button>
+      </div>
+      <div id="rideHud" class="ride-hud hidden">
+        <div class="ride-hud-top">
+          <span id="rideHudCoin" class="ride-hud-coin">--</span>
+        </div>
+        <div class="ride-timer-hud-container">
+          <div id="rideLiveTimer" class="ride-live-timer-text">00:00.0</div>
+          <div class="ride-nitro-bar-container">
+            <div id="nitroBarFill" class="ride-nitro-bar-fill"></div>
+            <div class="ride-nitro-text">NITRO</div>
+          </div>
+        </div>
+        <div class="ride-watermark">CAAAAAAAAAAAAAAAAA</div>
+        <div class="ride-hud-controls-box">
+          <div class="control-group-label">Keyboard</div>
+          <div class="control-item ctrl-keyboard">
+            <kbd class="key-cap">↑</kbd>
+            <span class="control-label">Gas</span>
+          </div>
+          <div class="control-item ctrl-keyboard">
+            <kbd class="key-cap">Shift / N</kbd>
+            <span class="control-label">Nitro</span>
+          </div>
+          <div class="control-item ctrl-keyboard">
+            <kbd class="key-cap">←</kbd>
+            <span class="control-label">Reverse</span>
+          </div>
+          <div class="control-item ctrl-keyboard">
+            <kbd class="key-cap">→</kbd>
+            <span class="control-label">Nose Dive</span>
+          </div>
+          <div class="control-item ctrl-keyboard">
+            <kbd class="key-cap">Space</kbd>
+            <span class="control-label">Jump</span>
+          </div>
+          <div class="control-item ctrl-keyboard">
+            <kbd class="key-cap">R</kbd>
+            <span class="control-label">Reset</span>
+          </div>
+          <div class="control-item ctrl-keyboard">
+            <kbd class="key-cap">M</kbd>
+            <span class="control-label">Mute</span>
+          </div>
+          <div class="control-item ctrl-keyboard">
+            <kbd class="key-cap">ESC</kbd>
+            <span class="control-label">Pause</span>
+          </div>
+          <div class="ctrl-divider"></div>
+          <div class="control-group-label ctrl-mobile">Touch</div>
+          <div class="control-item ctrl-mobile">
+            <span class="touch-zone touch-zone-gas"></span>
+            <span class="control-label">Hold = Gas</span>
+          </div>
+          <div class="control-item ctrl-mobile">
+            <span class="touch-zone touch-zone-nitro"></span>
+            <span class="control-label">Tap = Nitro</span>
+          </div>
+          <div class="control-item ctrl-mobile">
+            <span class="touch-zone touch-zone-steer"></span>
+            <span class="control-label">Tilt</span>
+          </div>
+          <div class="control-item ctrl-mobile">
+            <span class="touch-zone touch-zone-jump"></span>
+            <span class="control-label">Double-tap = Jump</span>
+          </div>
+        </div>
+      </div>
+      <div id="pauseOverlay" class="pause-overlay hidden">
+        <div class="pause-panel">
+          <h2 class="pause-title">PAUSED</h2>
+          <div class="pause-divider"></div>
+          <button id="pauseResumeBtn" class="pause-btn">Resume</button>
+          <button id="pauseRestartBtn" class="pause-btn">Restart</button>
+          <button id="pauseQuitBtn" class="pause-btn pause-btn-quit">Quit</button>
+          <p class="pause-hint">Press <kbd class="pause-kbd">ESC</kbd> to resume</p>
+        </div>
+      </div>
+      <div id="victoryOverlay" class="victory-overlay hidden">
+        <div class="victory-panel">
+          <div class="victory-icon">🏁</div>
+          <h2 class="victory-title">Track Complete</h2>
+          <p class="victory-subtitle" id="victorySubtitle">Claim rewards to lock them in, or retry to earn more.</p>
+          <div class="victory-divider"></div>
+          <div class="victory-stats">
+            <div class="victory-stat">
+              <span class="victory-stat-label">Time</span>
+              <span class="victory-stat-value" id="victoryTime">00:00.0</span>
+            </div>
+            <div class="victory-stat">
+              <span class="victory-stat-label">Distance</span>
+              <span class="victory-stat-value" id="victoryDistance">0 m</span>
+            </div>
+            <div class="victory-stat victory-stat-highlight">
+              <span class="victory-stat-label">RIDE Earned</span>
+              <span class="victory-stat-value victory-ride" id="victoryRide">0.00</span>
+            </div>
+            <div class="victory-stat">
+              <span class="victory-stat-label">Crashes</span>
+              <span class="victory-stat-value" id="victoryCrashes">0</span>
+            </div>
+          </div>
+          <div class="victory-buttons">
+            <button id="victoryRetryBtn" class="victory-btn victory-btn-primary">Retry</button>
+            <button id="victoryClaimBtn" class="victory-btn victory-btn-accent hidden">Claim Rewards</button>
+            <button id="victoryNewTrackBtn" class="victory-btn victory-btn-ghost">New Track</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="leaderboard-panel">
+      <h2>Leaderboard <span class="lb-subtitle">(7-day top earners)</span></h2>
+      <table id="leaderboardTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Wallet</th>
+            <th>Rewards</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboardBody">
+          <tr><td colspan="3">Loading...</td></tr>
+        </tbody>
+      </table>
+      <div id="lbPagination" class="pagination"></div>
+    </section>
+  </main>
+  <div id="walletModal" class="wallet-modal hidden">
+    <div class="wallet-panel">
+      <div class="wallet-header">
+        <h2 class="wallet-title">Connect Wallet</h2>
+        <button id="walletCloseBtn" class="wallet-close">&times;</button>
+      </div>
+      <div class="wallet-divider"></div>
+      <div class="wallet-list" id="walletList"></div>
+      <p id="walletHint" class="wallet-hint">Connect your wallet to track and claim RIDE tokens.</p>
+    </div>
+  </div>
+  <div id="rotateOverlay" class="rotate-overlay hidden">
+    <div class="rotate-content">
+      <div class="rotate-icon-wrap">
+        <div class="rotate-icon">&#x1F4F1;</div>
+      </div>
+      <p class="rotate-text">Rotate your device</p>
+      <p class="rotate-sub">Landscape mode required to ride the chart.</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden">
+    <span id="toastMessage" class="toast-message"></span>
+  </div>
+  <div id="comingSoonModal" class="coming-soon-modal hidden">
+    <div class="coming-soon-panel">
+      <div class="coming-soon-icon">🚧</div>
+      <h2 class="coming-soon-title">Coming Soon</h2>
+      <p class="coming-soon-desc">The ALL timeframe is not available yet. We're working on bringing you full historical chart data.</p>
+      <button id="comingSoonOkBtn" class="coming-soon-btn">Okay</button>
+    </div>
+  </div>
+  <footer class="footer">
+    <p>CAAAAAAAAAAAAAAAAA</p>
+  </footer>
+  <script src="js/sound.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/asset.js"></script>
+  <script src="js/leaderboard.js"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
