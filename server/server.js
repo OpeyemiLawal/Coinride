@@ -131,9 +131,14 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// Export for Vercel serverless
+module.exports = app;
+
 // ---------------------------------------------------------------------------
-// Start
+// Start (local dev only — Vercel handles this via serverless)
 // ---------------------------------------------------------------------------
-server = app.listen(PORT, () => {
-  console.log(`CoinRide server running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  server = app.listen(PORT, () => {
+    console.log(`CoinRide server running on port ${PORT}`);
+  });
+}
