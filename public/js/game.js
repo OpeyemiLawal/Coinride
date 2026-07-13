@@ -2860,6 +2860,33 @@
   }).catch(() => {});
 
   let turnstileWidgetId = null;
+  function getTurnstileContainer() {
+    let container = document.getElementById('turnstile-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'turnstile-container';
+      container.className = 'turnstile-box hidden';
+    }
+
+    if (walletModal && !walletModal.classList.contains('hidden')) {
+      const walletHint = document.getElementById('walletHint');
+      if (walletHint && container.parentElement !== walletHint.parentElement) {
+        walletHint.parentElement.insertBefore(container, walletHint);
+      }
+    } else {
+      const claimBtn = document.getElementById('victoryClaimBtn');
+      const claimButtons = claimBtn ? claimBtn.parentElement : null;
+      if (claimButtons && container.parentElement !== claimButtons.parentElement) {
+        claimButtons.parentElement.insertBefore(container, claimButtons);
+      } else if (!container.parentElement) {
+        document.body.appendChild(container);
+      }
+    }
+
+    container.classList.remove('hidden');
+    return container;
+  }
+
   function waitForTurnstileScript(timeoutMs = 5000) {
     if (typeof turnstile !== 'undefined') return Promise.resolve();
     return new Promise((resolve, reject) => {
@@ -2889,26 +2916,17 @@
         if (finished) return;
         finished = true;
         clearTimeout(timeout);
+        const container = document.getElementById('turnstile-container');
+        if (!err && container) container.classList.add('hidden');
         if (err) reject(err);
         else resolve(token);
       };
       const timeout = setTimeout(() => {
         finish(new Error('Captcha timed out. Please try again.'));
-      }, 15000);
+      }, 120000);
 
       try {
-        let container = document.getElementById('turnstile-container');
-        if (!container) {
-          container = document.createElement('div');
-          container.id = 'turnstile-container';
-          container.style.position = 'fixed';
-          container.style.left = '-9999px';
-          container.style.top = '0';
-          container.style.width = '1px';
-          container.style.height = '1px';
-          container.style.overflow = 'hidden';
-          document.body.appendChild(container);
-        }
+        const container = getTurnstileContainer();
         if (turnstileWidgetId !== null) {
           turnstile.remove(turnstileWidgetId);
           turnstileWidgetId = null;
@@ -2917,13 +2935,12 @@
         
         turnstileWidgetId = turnstile.render(container, {
           sitekey: window._turnstileSiteKey,
-          size: 'invisible',
-          execution: 'execute',
+          size: 'normal',
+          theme: 'dark',
           callback: (t) => { finish(null, t); },
           'error-callback': () => { finish(new Error('Captcha failed. Please try again.')); },
           'expired-callback': () => { finish(new Error('Captcha expired. Please try again.')); }
         });
-        turnstile.execute(turnstileWidgetId);
       } catch (e) {
         console.warn('Turnstile error:', e);
         finish(new Error('Captcha could not start. Please refresh and try again.'));

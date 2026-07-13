@@ -398,6 +398,7 @@ router.post('/ride/claim', async (req, res) => {
       });
       const verData = await verRes.json();
       if (!verData.success) {
+        console.warn('Turnstile ride claim verification failed:', verData['error-codes'] || verData);
         return res.status(403).json({ error: 'Captcha verification failed' });
       }
     } catch (_) {

@@ -1420,6 +1420,17 @@ th {
 
 /* ── Wallet Dashboard ── */
 
+.turnstile-box {
+  display: flex;
+  justify-content: center;
+  min-height: 65px;
+  margin-top: 16px;
+}
+
+.turnstile-box.hidden {
+  display: none;
+}
+
 .wallet-dashboard {
   display: flex;
   align-items: center;
