@@ -535,9 +535,7 @@ router.post('/wallet-balance', async (req, res) => {
     const balanceErrors = {};
     if (solResult.status === 'rejected') balanceErrors.sol = solResult.reason.message;
     if (rideResult.status === 'rejected') balanceErrors.ride = rideResult.reason.message;
-    if (balanceErrors.sol && balanceErrors.ride) {
-      return res.status(500).json({ error: 'Unable to fetch wallet balances', balanceErrors });
-    }
+    // Return partial data even when the RPC provider is unavailable.
     res.json({
       sol: solResult.status === 'fulfilled' ? solResult.value : null,
       ride: rideResult.status === 'fulfilled' ? rideResult.value : null,

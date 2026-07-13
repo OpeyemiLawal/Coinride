@@ -91,8 +91,8 @@
         body: JSON.stringify({ address }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      return { sol: data.sol, ride: data.ride };
+      if (!res.ok) throw new Error(data.error || 'Unable to fetch wallet balances');
+      return { sol: data.sol, ride: data.ride, balanceErrors: data.balanceErrors || {} };
     } catch (e) {
       console.warn('fetchBalances error:', e.message);
       return { sol: null, ride: null };
@@ -125,13 +125,11 @@
     // Fire all server calls in parallel — no blocking
     const [
       configResult,
-      syncResult,
       balanceResult,
       claimResult,
       predsResult,
     ] = await Promise.allSettled([
       API.getSolanaConfig(),
-      API.syncBalance(),
       fetchBalances(wallet),
       API.getClaimableRewards(),
       API.getPredictions(),
@@ -145,10 +143,9 @@
 
     // Apply balances
     const isEVM = wallet.startsWith('0x');
-    const syncedRideBalance = syncResult.status === 'fulfilled' ? syncResult.value.rideBalance : null;
     const balanceData = balanceResult.status === 'fulfilled' ? balanceResult.value : { sol: null, ride: null };
     const { sol: solBalance, ride: rideBalance } = balanceData;
-    const displayRideBalance = syncedRideBalance !== null ? syncedRideBalance : rideBalance;
+    const displayRideBalance = rideBalance;
     const balanceErrors = balanceData.balanceErrors || {};
 
     // SOL balance: EVM wallets don't have a Solana address, show 'N/A'

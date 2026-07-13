@@ -27,6 +27,28 @@ async function getConnection() {
   return connectionPromise;
 }
 
+async function rpcRequest(method, params) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`RPC request failed (${response.status})`);
+    const payload = await response.json();
+    if (payload.error) throw new Error(payload.error.message || 'RPC request failed');
+    return payload.result;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('RPC request timed out');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function getTreasuryKeypair() {
   if (treasuryKeypair) return treasuryKeypair;
   if (!TREASURY_SECRET || !RIDE_TOKEN_MINT) return null;
@@ -133,19 +155,20 @@ async function transferTokens(destinationWallet, amount) {
 async function getTokenBalance(walletAddress) {
   if (!RIDE_TOKEN_MINT) throw new Error('RIDE_TOKEN_MINT not set');
   try {
-    const { PublicKey } = await getWeb3();
-    const { getAssociatedTokenAddress, getAccount } = await getSplToken();
-    const connection = await getConnection();
-    const pubkey = new PublicKey(walletAddress);
-    const mintPubkey = new PublicKey(RIDE_TOKEN_MINT);
+    const result = await rpcRequest('getTokenAccountsByOwner', [
+      walletAddress,
+      { mint: RIDE_TOKEN_MINT },
+      { encoding: 'jsonParsed' },
+    ]);
     // Read-only lookup: compute the associated token address without creating
     // it. Creating an ATA costs the treasury SOL rent, and this function is
     // reachable (via /wallet-balance and /sync-balance) for arbitrary
     // addresses an authenticated wallet chooses to query — it should never
     // spend treasury funds just to answer a balance check.
-    const ataAddress = await getAssociatedTokenAddress(mintPubkey, pubkey);
-    const account = await getAccount(connection, ataAddress);
-    return Number(account.amount) / 1_000_000_000;
+    return (result.value || []).reduce((total, account) => {
+      const amount = account.account?.data?.parsed?.info?.tokenAmount?.uiAmount;
+      return total + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
   } catch (e) {
     if (
       e.name === 'TokenAccountNotFoundError' ||
@@ -162,11 +185,8 @@ async function getTokenBalance(walletAddress) {
 
 async function getSolBalance(walletAddress) {
   try {
-    const { PublicKey } = await getWeb3();
-    const connection = await getConnection();
-    const pubkey = new PublicKey(walletAddress);
-    const lamports = await connection.getBalance(pubkey);
-    return lamports / 1_000_000_000;
+    const result = await rpcRequest('getBalance', [walletAddress, { commitment: 'confirmed' }]);
+    return Number(result.value || 0) / 1_000_000_000;
   } catch (e) {
     console.error('getSolBalance error:', e.message);
     throw e;
