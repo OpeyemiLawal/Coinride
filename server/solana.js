@@ -1,15 +1,44 @@
-const { Connection, PublicKey, Keypair, Transaction } = require('@solana/web3.js');
-const { getOrCreateAssociatedTokenAccount, getAssociatedTokenAddress, createTransferInstruction, getAccount } = require('@solana/spl-token');
 const bs58 = require('bs58').default || require('bs58');
 
 const RPC_URL = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
 const TREASURY_SECRET = process.env.TREASURY_SECRET_KEY;
 const RIDE_TOKEN_MINT = process.env.RIDE_TOKEN_MINT;
 
-const connection = new Connection(RPC_URL, 'confirmed');
-
+let web3Promise = null;
+let splTokenPromise = null;
+let connectionPromise = null;
 let treasuryKeypair = null;
 let treasuryTokenAccount = null;
+
+async function getWeb3() {
+  if (!web3Promise) web3Promise = import('@solana/web3.js');
+  return web3Promise;
+}
+
+async function getSplToken() {
+  if (!splTokenPromise) splTokenPromise = import('@solana/spl-token');
+  return splTokenPromise;
+}
+
+async function getConnection() {
+  if (!connectionPromise) {
+    connectionPromise = getWeb3().then(({ Connection }) => new Connection(RPC_URL, 'confirmed'));
+  }
+  return connectionPromise;
+}
+
+async function getTreasuryKeypair() {
+  if (treasuryKeypair) return treasuryKeypair;
+  if (!TREASURY_SECRET || !RIDE_TOKEN_MINT) return null;
+  try {
+    const { Keypair } = await getWeb3();
+    treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_SECRET));
+    return treasuryKeypair;
+  } catch (e) {
+    console.warn('Invalid TREASURY_SECRET_KEY — claim-all disabled:', e.message);
+    return null;
+  }
+}
 
 function initTreasury() {
   if (!TREASURY_SECRET) {
@@ -20,23 +49,22 @@ function initTreasury() {
     console.warn('RIDE_TOKEN_MINT not set — claim-all disabled');
     return;
   }
-  try {
-    treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_SECRET));
-  } catch (e) {
-    console.warn('Invalid TREASURY_SECRET_KEY — claim-all disabled:', e.message);
-  }
 }
 
 async function ensureTreasuryTokenAccount() {
-  if (!treasuryKeypair || !RIDE_TOKEN_MINT) return null;
+  const keypair = await getTreasuryKeypair();
+  if (!keypair || !RIDE_TOKEN_MINT) return null;
   if (treasuryTokenAccount) return treasuryTokenAccount;
   try {
+    const { PublicKey } = await getWeb3();
+    const { getOrCreateAssociatedTokenAccount } = await getSplToken();
+    const connection = await getConnection();
     const mintPubkey = new PublicKey(RIDE_TOKEN_MINT);
     const ata = await getOrCreateAssociatedTokenAccount(
       connection,
-      treasuryKeypair,
+      keypair,
       mintPubkey,
-      treasuryKeypair.publicKey,
+      keypair.publicKey,
     );
     treasuryTokenAccount = ata.address;
     return ata.address;
@@ -47,12 +75,16 @@ async function ensureTreasuryTokenAccount() {
 }
 
 async function transferTokens(destinationWallet, amount) {
-  if (!treasuryKeypair) throw new Error('Treasury not configured');
+  const keypair = await getTreasuryKeypair();
+  if (!keypair) throw new Error('Treasury not configured');
   if (!RIDE_TOKEN_MINT) throw new Error('RIDE_TOKEN_MINT not set');
   if (!amount || typeof amount !== 'number' || amount <= 0) {
     throw new Error('Invalid transfer amount');
   }
 
+  const { PublicKey, Transaction } = await getWeb3();
+  const { getOrCreateAssociatedTokenAccount, createTransferInstruction, getAccount } = await getSplToken();
+  const connection = await getConnection();
   const mintPubkey = new PublicKey(RIDE_TOKEN_MINT);
   const destPubkey = new PublicKey(destinationWallet);
 
@@ -63,7 +95,7 @@ async function transferTokens(destinationWallet, amount) {
   // Get or create the user's associated token account
   const destAta = await getOrCreateAssociatedTokenAccount(
     connection,
-    treasuryKeypair,
+    keypair,
     mintPubkey,
     destPubkey,
   );
@@ -81,19 +113,22 @@ async function transferTokens(destinationWallet, amount) {
     createTransferInstruction(
       treasuryAta,
       destAta.address,
-      treasuryKeypair.publicKey,
+      keypair.publicKey,
       rawAmount,
     ),
   );
 
-  const sig = await connection.sendTransaction(tx, [treasuryKeypair]);
+  const sig = await connection.sendTransaction(tx, [keypair]);
   await connection.confirmTransaction(sig, 'confirmed');
   return sig;
 }
 
 async function getTokenBalance(walletAddress) {
-  if (!RIDE_TOKEN_MINT) { console.log('getTokenBalance: RIDE_TOKEN_MINT not set'); return 0; }
+  if (!RIDE_TOKEN_MINT) return 0;
   try {
+    const { PublicKey } = await getWeb3();
+    const { getAssociatedTokenAddress, getAccount } = await getSplToken();
+    const connection = await getConnection();
     const pubkey = new PublicKey(walletAddress);
     const mintPubkey = new PublicKey(RIDE_TOKEN_MINT);
     // Read-only lookup: compute the associated token address without creating
@@ -103,7 +138,6 @@ async function getTokenBalance(walletAddress) {
     // spend treasury funds just to answer a balance check.
     const ataAddress = await getAssociatedTokenAddress(mintPubkey, pubkey);
     const account = await getAccount(connection, ataAddress);
-    console.log('getTokenBalance: amount=%s', account.amount);
     return Number(account.amount) / 1_000_000_000;
   } catch (e) {
     // No token account yet for this address — balance is simply 0.
@@ -113,9 +147,10 @@ async function getTokenBalance(walletAddress) {
 
 async function getSolBalance(walletAddress) {
   try {
+    const { PublicKey } = await getWeb3();
+    const connection = await getConnection();
     const pubkey = new PublicKey(walletAddress);
     const lamports = await connection.getBalance(pubkey);
-    console.log('getSolBalance: address=%s lamports=%d', walletAddress, lamports);
     return lamports / 1_000_000_000;
   } catch (e) {
     console.error('getSolBalance error for %s: %s', walletAddress, e.message);

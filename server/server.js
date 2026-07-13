@@ -45,8 +45,19 @@ app.use(helmet({
     },
   },
 }));
+const allowedOrigins = (process.env.CORS_ORIGIN || 'https://coinride-pied.vercel.app')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -95,14 +106,8 @@ app.use('/api/leaderboard', leaderboardLimiter, leaderboardRoutes);
 
 // Public config endpoint
 app.get('/api/config', (req, res) => {
-  const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY || '';
   res.json({
-    turnstileSiteKey,
-    turnstileSiteKeyPreview: turnstileSiteKey
-      ? `${turnstileSiteKey.slice(0, 8)}...${turnstileSiteKey.slice(-6)}`
-      : '',
-    hostname: req.hostname,
-    production: process.env.NODE_ENV === 'production',
+    turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || '',
   });
 });
 

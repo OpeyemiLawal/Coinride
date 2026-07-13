@@ -84,7 +84,6 @@
 
   async function fetchBalances(address) {
     const token = API.getToken();
-    console.log('fetchBalances: address=', address, 'token exists=', !!token);
     try {
       const res = await fetch('/api/user/wallet-balance', {
         method: 'POST',
@@ -92,7 +91,6 @@
         body: JSON.stringify({ address }),
       });
       const data = await res.json();
-      console.log('fetchBalances response:', data);
       if (!res.ok) throw new Error(data.error);
       return { sol: data.sol, ride: data.ride };
     } catch (e) {
@@ -306,4 +304,4 @@
     } catch (_) {}
   }, 30000);
 
-})();
+})();

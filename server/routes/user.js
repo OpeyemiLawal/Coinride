@@ -510,7 +510,6 @@ router.post('/prediction/claim', async (req, res) => {
 // POST /api/user/wallet-balance — fetch SOL + RIDE balances via web3.js Connection
 router.post('/wallet-balance', async (req, res) => {
   const { address } = req.body;
-  console.log('wallet-balance called for address:', address);
   if (!address) return res.status(400).json({ error: 'address required' });
 
   // EVM addresses (MetaMask, etc.) don't have SOL or Solana RIDE balances
@@ -524,7 +523,6 @@ router.post('/wallet-balance', async (req, res) => {
       solana.getSolBalance(address),
       solana.getTokenBalance(address),
     ]);
-    console.log('wallet-balance result:', { sol, ride });
     res.json({ sol, ride });
   } catch (err) {
     console.error('wallet-balance error:', err.message);
@@ -557,7 +555,6 @@ router.post('/sync-balance', async (req, res) => {
 
     const solana = require('../solana');
     const onChainBalance = await solana.getTokenBalance(wallet);
-    console.log('sync-balance: wallet=%s onChainBalance=%s', wallet, onChainBalance);
     const { error } = await supabase
       .from('users')
       .update({ ride_balance: onChainBalance })
@@ -578,6 +575,17 @@ router.post('/sync-balance', async (req, res) => {
 // POST /api/user/rpc — proxy Solana RPC calls (avoids browser CORS)
 router.post('/rpc', async (req, res) => {
   const { method, params } = req.body;
+  const allowedMethods = new Set([
+    'getAccountInfo',
+    'getBalance',
+    'getLatestBlockhash',
+    'getTokenAccountBalance',
+    'getTokenAccountsByOwner',
+    'getTokenSupply',
+  ]);
+  if (!allowedMethods.has(method)) {
+    return res.status(400).json({ error: 'RPC method not allowed' });
+  }
   const rpcUrl = process.env.RPC_URL || 'https://api.devnet.solana.com';
   try {
     const rpcRes = await fetch(rpcUrl, {
@@ -593,9 +601,9 @@ router.post('/rpc', async (req, res) => {
 });
 
 // POST /api/user/test/seed-hits — mark recent predictions as hits for testing
-// Debug-only: disabled unless NODE_ENV is explicitly not 'production'.
+// Debug-only: disabled unless explicitly enabled.
 router.post('/test/seed-hits', async (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.ALLOW_TEST_ENDPOINTS !== 'true') {
     return res.status(404).json({ error: 'Not found' });
   }
   const { wallet } = req.user;

@@ -100,10 +100,6 @@ const API = (() => {
     return request('POST', '/api/user/resolve-predictions');
   }
 
-  async function seedTestHits() {
-    return request('POST', '/api/user/test/seed-hits');
-  }
-
   async function getSolanaConfig() {
     return request('GET', '/api/user/solana-config');
   }
@@ -123,6 +119,6 @@ const API = (() => {
     claimRideReward, claimPredictionReward,
     getProfile, getUsedAssets, markAssetUsed,
     getUnlockedAssets, unlockAsset, getPredState,
-    syncBalance, resolvePredictions, seedTestHits, getSolanaConfig, getClaimableRewards, claimAll,
+    syncBalance, resolvePredictions, getSolanaConfig, getClaimableRewards, claimAll,
   };
 })();
