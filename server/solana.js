@@ -1,8 +1,13 @@
 const bs58 = require('bs58').default || require('bs58');
 
 const RPC_URL = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
-const TREASURY_SECRET = process.env.TREASURY_SECRET_KEY;
-const RIDE_TOKEN_MINT = process.env.RIDE_TOKEN_MINT;
+function getTreasurySecret() {
+  return (process.env.TREASURY_SECRET_KEY || '').trim();
+}
+
+function getRideTokenMint() {
+  return (process.env.RIDE_TOKEN_MINT || '').trim();
+}
 
 let web3Promise = null;
 let splTokenPromise = null;
@@ -51,10 +56,17 @@ async function rpcRequest(method, params) {
 
 async function getTreasuryKeypair() {
   if (treasuryKeypair) return treasuryKeypair;
-  if (!TREASURY_SECRET || !RIDE_TOKEN_MINT) return null;
+  const treasurySecret = getTreasurySecret();
+  if (!treasurySecret) return null;
   try {
     const { Keypair } = await getWeb3();
-    treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_SECRET));
+    const secretBytes = treasurySecret.startsWith('[')
+      ? Uint8Array.from(JSON.parse(treasurySecret))
+      : bs58.decode(treasurySecret);
+    if (secretBytes.length !== 64) {
+      throw new Error(`expected a 64-byte Solana private key, received ${secretBytes.length} bytes`);
+    }
+    treasuryKeypair = Keypair.fromSecretKey(secretBytes);
     return treasuryKeypair;
   } catch (e) {
     console.warn('Invalid TREASURY_SECRET_KEY — claim-all disabled:', e.message);
@@ -63,11 +75,11 @@ async function getTreasuryKeypair() {
 }
 
 function initTreasury() {
-  if (!TREASURY_SECRET) {
+  if (!getTreasurySecret()) {
     console.warn('TREASURY_SECRET_KEY not set — claim-all disabled');
     return;
   }
-  if (!RIDE_TOKEN_MINT) {
+  if (!getRideTokenMint()) {
     console.warn('RIDE_TOKEN_MINT not set — claim-all disabled');
     return;
   }
@@ -75,13 +87,14 @@ function initTreasury() {
 
 async function ensureTreasuryTokenAccount() {
   const keypair = await getTreasuryKeypair();
-  if (!keypair || !RIDE_TOKEN_MINT) return null;
+  const rideTokenMint = getRideTokenMint();
+  if (!keypair || !rideTokenMint) return null;
   if (treasuryTokenAccount) return treasuryTokenAccount;
   try {
     const { PublicKey } = await getWeb3();
     const { getOrCreateAssociatedTokenAccount } = await getSplToken();
     const connection = await getConnection();
-    const mintPubkey = new PublicKey(RIDE_TOKEN_MINT);
+    const mintPubkey = new PublicKey(rideTokenMint);
     const ata = await getOrCreateAssociatedTokenAccount(
       connection,
       keypair,
@@ -97,9 +110,11 @@ async function ensureTreasuryTokenAccount() {
 }
 
 async function transferTokens(destinationWallet, amount) {
+  if (!getTreasurySecret()) throw new Error('TREASURY_SECRET_KEY is not set');
+  const rideTokenMint = getRideTokenMint();
+  if (!rideTokenMint) throw new Error('RIDE_TOKEN_MINT is not set');
   const keypair = await getTreasuryKeypair();
-  if (!keypair) throw new Error('Treasury not configured');
-  if (!RIDE_TOKEN_MINT) throw new Error('RIDE_TOKEN_MINT not set');
+  if (!keypair) throw new Error('TREASURY_SECRET_KEY is invalid');
   if (!amount || typeof amount !== 'number' || amount <= 0) {
     throw new Error('Invalid transfer amount');
   }
@@ -107,7 +122,7 @@ async function transferTokens(destinationWallet, amount) {
   const { PublicKey, Transaction } = await getWeb3();
   const { getOrCreateAssociatedTokenAccount, createTransferInstruction, getAccount } = await getSplToken();
   const connection = await getConnection();
-  const mintPubkey = new PublicKey(RIDE_TOKEN_MINT);
+  const mintPubkey = new PublicKey(rideTokenMint);
   const destPubkey = new PublicKey(destinationWallet);
 
   // Ensure treasury has a token account
@@ -153,11 +168,12 @@ async function transferTokens(destinationWallet, amount) {
 }
 
 async function getTokenBalance(walletAddress) {
-  if (!RIDE_TOKEN_MINT) throw new Error('RIDE_TOKEN_MINT not set');
+  const rideTokenMint = getRideTokenMint();
+  if (!rideTokenMint) throw new Error('RIDE_TOKEN_MINT not set');
   try {
     const result = await rpcRequest('getTokenAccountsByOwner', [
       walletAddress,
-      { mint: RIDE_TOKEN_MINT },
+      { mint: rideTokenMint },
       { encoding: 'jsonParsed' },
     ]);
     // Read-only lookup: compute the associated token address without creating

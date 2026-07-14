@@ -736,10 +736,6 @@ router.post('/claim-all', async (req, res) => {
     return res.status(400).json({ error: 'Nothing to claim' });
   }
 
-  if (!process.env.TREASURY_SECRET_KEY) {
-    return res.status(500).json({ error: 'Treasury not configured' });
-  }
-
   const total = (predRes.data || []).reduce((s, p) => s + Number(p.reward || 0), 0) +
                 (rideRes.data || []).reduce((s, r) => s + Number(r.reward || 0), 0);
 
