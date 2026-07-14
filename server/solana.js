@@ -14,6 +14,7 @@ let splTokenPromise = null;
 let connectionPromise = null;
 let treasuryKeypair = null;
 let treasuryTokenAccount = null;
+let treasuryKeyError = null;
 
 async function getWeb3() {
   if (!web3Promise) web3Promise = import('@solana/web3.js');
@@ -69,6 +70,7 @@ async function getTreasuryKeypair() {
     treasuryKeypair = Keypair.fromSecretKey(secretBytes);
     return treasuryKeypair;
   } catch (e) {
+    treasuryKeyError = e.message;
     console.warn('Invalid TREASURY_SECRET_KEY — claim-all disabled:', e.message);
     return null;
   }
@@ -114,7 +116,9 @@ async function transferTokens(destinationWallet, amount) {
   const rideTokenMint = getRideTokenMint();
   if (!rideTokenMint) throw new Error('RIDE_TOKEN_MINT is not set');
   const keypair = await getTreasuryKeypair();
-  if (!keypair) throw new Error('TREASURY_SECRET_KEY is invalid');
+  if (!keypair) {
+    throw new Error('TREASURY_SECRET_KEY is invalid: ' + (treasuryKeyError || 'unrecognized format'));
+  }
   if (!amount || typeof amount !== 'number' || amount <= 0) {
     throw new Error('Invalid transfer amount');
   }
