@@ -268,6 +268,7 @@
           showToast('Claimed +' + result.amount + ' RIDE! Signature: ' + result.signature.slice(0, 8) + '...');
           render();
         } catch (err) {
+          console.error('Airdrop claim failed:', err.message);
           showToast('Claim failed: ' + err.message, true);
           claimAllBtn.disabled = false;
           claimAllBtn.textContent = 'Airdrop to Wallet';
