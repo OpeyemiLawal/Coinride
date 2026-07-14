@@ -10,6 +10,7 @@ const supabase = require('./supabase');
 const leaderboardRoutes = require('./routes/leaderboard');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const chatbotRoutes = require('./routes/chatbot');
 
 // ---------------------------------------------------------------------------
 // Environment validation
@@ -103,6 +104,15 @@ const leaderboardLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use('/api/leaderboard', leaderboardLimiter, leaderboardRoutes);
+
+const chatbotLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'CoinRide AI question limit reached. Please try again later.' },
+});
+app.use('/api/ai', chatbotLimiter, chatbotRoutes);
 
 // Public config endpoint
 app.get('/api/config', (req, res) => {
