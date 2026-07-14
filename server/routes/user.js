@@ -191,15 +191,30 @@ router.post('/predictions', async (req, res) => {
 
   // Check ticker cooldown (duplicate prediction within 12h)
   const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-  const { data: existing } = await supabase
-    .from('ticker_cooldowns')
-    .select('id')
-    .eq('wallet', wallet)
-    .eq('ticker', coin.toLowerCase())
-    .gte('created_at', cutoff)
-    .maybeSingle();
+  const [cooldownResult, predictionCountResult] = await Promise.all([
+    supabase
+      .from('ticker_cooldowns')
+      .select('id')
+      .eq('wallet', wallet)
+      .eq('ticker', coin.toLowerCase())
+      .gte('created_at', cutoff)
+      .maybeSingle(),
+    supabase
+      .from('ticker_cooldowns')
+      .select('id', { count: 'exact', head: true })
+      .eq('wallet', wallet)
+      .gte('created_at', cutoff),
+  ]);
+  const { data: existing, error: cooldownError } = cooldownResult;
+  const { count: recentPredictionCount, error: predictionCountError } = predictionCountResult;
+  if (cooldownError || predictionCountError) {
+    return res.status(500).json({ error: (cooldownError || predictionCountError).message });
+  }
 
   if (existing) return res.status(409).json({ error: 'Already predicted this coin recently' });
+  if ((recentPredictionCount || 0) >= 10) {
+    return res.status(429).json({ error: 'Prediction limit reached (10 predictions/12h)' });
+  }
 
   // Insert prediction and ticker cooldown in parallel for speed
   const [{ data, error }] = await Promise.all([
@@ -437,19 +452,6 @@ router.post('/ride/claim', async (req, res) => {
 
   if (onCooldown) {
     return res.status(429).json({ error: 'This asset is on cooldown for this ticker' });
-  }
-
-  // Anti-farming guard 2: per-wallet daily earning cap across all ride rewards.
-  const dayCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { data: todaysRewards } = await supabase
-    .from('ride_rewards')
-    .select('reward')
-    .eq('wallet', wallet)
-    .gte('created_at', dayCutoff);
-  const todayTotal = (todaysRewards || []).reduce((sum, r) => sum + r.reward, 0);
-  const DAILY_RIDE_CAP = 2000;
-  if (reward > 0 && todayTotal + reward > DAILY_RIDE_CAP) {
-    return res.status(429).json({ error: `Daily ride-reward cap reached (${DAILY_RIDE_CAP} RIDE/24h)` });
   }
 
   // Record ride reward for later on-chain claim, and start the cooldown for
