@@ -45,7 +45,7 @@ app.use(helmet({
     },
   },
 }));
-const allowedOrigins = (process.env.CORS_ORIGIN || 'https://coinride-pied.vercel.app')
+const allowedOrigins = (process.env.CORS_ORIGIN || 'https://coinride-smoky.vercel.app,https://coinride-pied.vercel.app')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);

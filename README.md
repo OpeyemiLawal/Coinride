@@ -147,7 +147,7 @@ npm install
 Also used but not boot-checked:
 - `PORT` — defaults to 3000
 - `NODE_ENV` — **set this to `production` on Hostinger.** As of this fix pass, `POST /api/user/test/seed-hits` (a debug endpoint, see [Known Issues](#known-issues--security-notes)) only responds when `NODE_ENV` is *not* `production`; if it's left unset in the Hostinger panel, the debug route stays reachable.
-- `CORS_ORIGIN` — defaults to `*`; set this explicitly to your production domain before going live
+- `CORS_ORIGIN` — comma-separated list of allowed website origins; set this explicitly to your production domain before going live
 - `TREASURY_SECRET_KEY` and `RIDE_TOKEN_MINT` — both required for `claim-all`; it's disabled (fails cleanly) without them
 - `CMC_API_KEY` — optional CoinMarketCap fallback for price resolution
 
