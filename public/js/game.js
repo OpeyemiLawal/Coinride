@@ -2854,9 +2854,11 @@
   });
 
   // Fetch Turnstile site key
+  let captchaRequired = true;
   const turnstileConfigReady = fetch('/api/config').then(r => r.json()).then(cfg => {
+    captchaRequired = cfg.captchaRequired === true;
     window._turnstileSiteKey = cfg.turnstileSiteKey || '';
-    if (!window._turnstileSiteKey) console.warn('Turnstile: missing site key');
+    if (captchaRequired && !window._turnstileSiteKey) console.warn('Turnstile: missing site key');
   }).catch(() => {});
 
   let turnstileWidgetId = null;
@@ -2905,6 +2907,7 @@
 
   async function getTurnstileToken() {
     await turnstileConfigReady;
+    if (!captchaRequired) return '';
     if (!window._turnstileSiteKey) {
       throw new Error('Captcha is not configured for this site.');
     }
