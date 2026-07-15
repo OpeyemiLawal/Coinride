@@ -63,6 +63,9 @@
 
   openButton.addEventListener('click', openChat);
   closeButton.addEventListener('click', closeChat);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !panel.classList.contains('hidden')) closeChat();
+  });
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     sendMessage(input.value);

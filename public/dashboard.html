@@ -9,6 +9,12 @@
 <body class="dashboard-page">
   <header class="topbar">
     <a href="/" class="logo-link"><h1 class="logo">Coin<span>Ride</span></h1></a>
+    <nav class="header-quick-actions" aria-label="CoinRide links">
+      <button id="aiChatBtn" type="button" class="header-icon-btn header-icon-btn-ai" aria-label="Open CoinRide AI" title="Open CoinRide AI"><span class="ai-chat-icon" aria-hidden="true"></span></button>
+      <a class="header-icon-btn header-icon-btn-x" href="https://x.com/coinridefun" target="_blank" rel="noopener noreferrer" aria-label="CoinRide on X" title="CoinRide on X"><span aria-hidden="true">X</span></a>
+      <button type="button" class="header-icon-btn" disabled aria-label="Telegram - coming soon" title="Telegram - coming soon">TG</button>
+      <button type="button" class="header-icon-btn" disabled aria-label="Discord - coming soon" title="Discord - coming soon">DC</button>
+    </nav>
     <div class="topbar-right">
       <a href="index.html" class="btn-dashboard">HOMEPAGE</a>
     </div>
@@ -83,10 +89,34 @@
   <div id="dashToast" class="toast hidden">
     <span class="toast-message"></span>
   </div>
+  <aside id="aiChatPanel" class="ai-chat-panel hidden" aria-label="CoinRide AI assistant">
+    <header class="ai-chat-header">
+      <div class="ai-chat-title-wrap">
+        <span class="ai-chat-avatar" aria-hidden="true"><span class="ai-chat-icon"></span></span>
+        <div>
+          <h2>CoinRide AI</h2>
+          <span>Online</span>
+        </div>
+      </div>
+      <button id="aiChatCloseBtn" class="ai-chat-close" type="button" aria-label="Close CoinRide AI">&times;</button>
+    </header>
+    <div id="aiChatMessages" class="ai-chat-messages" aria-live="polite">
+      <div class="ai-chat-message ai-chat-message-assistant">Hi, I am CoinRide AI. What would you like to explore?</div>
+    </div>
+    <div class="ai-chat-prompts" aria-label="Suggested prompts">
+      <button type="button" data-ai-prompt="About CoinRide">About CoinRide</button>
+      <button type="button" data-ai-prompt="RIDE Rewards">RIDE Rewards</button>
+    </div>
+    <form id="aiChatForm" class="ai-chat-form">
+      <input id="aiChatInput" type="text" maxlength="500" autocomplete="off" placeholder="Ask CoinRide AI" aria-label="Message CoinRide AI">
+      <button type="submit" aria-label="Send message">Send</button>
+    </form>
+  </aside>
   <footer class="footer">
     <p>CAAAAAAAAAAAAAAAAA</p>
   </footer>
   <script src="js/api.js"></script>
+  <script src="js/chatbot.js"></script>
   <script src="js/dashboard.js"></script>
 </body>
 </html>

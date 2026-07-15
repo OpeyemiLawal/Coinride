@@ -121,10 +121,14 @@ body {
 
 .ai-chat-panel {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
   z-index: 240;
-  width: min(380px, calc(100vw - 40px));
+  width: clamp(320px, 28vw, 400px);
+  max-width: calc(100vw - 40px);
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -189,7 +193,8 @@ body {
 }
 
 .ai-chat-messages {
-  height: 270px;
+  min-height: 150px;
+  flex: 1 1 270px;
   padding: 16px;
   overflow-y: auto;
   display: flex;
@@ -204,6 +209,7 @@ body {
   border-radius: 6px;
   font-size: 13px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .ai-chat-message-assistant {
@@ -287,6 +293,59 @@ body {
 .ai-chat-typing {
   color: var(--text-muted);
   font-style: italic;
+}
+
+.ride-mode .ai-chat-panel {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .ai-chat-panel {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: min(400px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+  }
+
+  .ai-chat-header {
+    padding: 12px 14px;
+  }
+
+  .ai-chat-messages {
+    padding: 14px;
+  }
+
+  .ai-chat-prompts {
+    padding: 0 14px 10px;
+  }
+
+  .ai-chat-form {
+    padding: 10px 14px 14px;
+  }
+}
+
+@media (max-height: 600px) and (orientation: landscape) {
+  .ai-chat-panel {
+    width: min(360px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+  }
+
+  .ai-chat-header {
+    padding: 10px 12px;
+  }
+
+  .ai-chat-messages {
+    min-height: 100px;
+    padding: 10px 12px;
+  }
+
+  .ai-chat-prompts {
+    padding: 0 12px 8px;
+  }
+
+  .ai-chat-form {
+    padding: 8px 12px 10px;
+  }
 }
 
 .logo-link {
@@ -2168,9 +2227,10 @@ th {
     font-size: 10px;
   }
   .ai-chat-panel {
-    right: 12px;
-    bottom: 12px;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
     width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
   }
   .search-panel h2,
   .leaderboard-panel h2 {

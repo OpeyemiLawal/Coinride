@@ -265,8 +265,16 @@
         claimAllBtn.innerHTML = '<span class="spinner"></span> Airdropping...';
         try {
           const result = await API.claimAll();
+          if (typeof result.rideBalance === 'number') {
+            rideBalanceEl.textContent = result.rideBalance.toFixed(result.rideBalance < 1 ? 4 : 2) + ' RIDE';
+          }
+          if (typeof result.solBalance === 'number') {
+            solBalanceEl.textContent = result.solBalance.toFixed(6) + ' SOL';
+          }
+          claimCountEl.textContent = '0';
+          claimTotalEl.textContent = '0.00 RIDE';
+          renderClaimPage(1, []);
           showToast('Claimed +' + result.amount + ' RIDE! Signature: ' + result.signature.slice(0, 8) + '...');
-          render();
         } catch (err) {
           console.error('Airdrop claim failed:', err.message);
           showToast('Claim failed: ' + err.message, true);

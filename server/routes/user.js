@@ -780,15 +780,25 @@ router.post('/claim-all', async (req, res) => {
       });
     }
 
-    // Sync DB ride_balance to match on-chain balance after transfer
+    // Return the confirmed on-chain balances so the dashboard can update
+    // immediately, without waiting for a second client-side RPC read.
+    let rideBalance = null;
+    let solBalance = null;
     try {
-      const onChainBalance = await solana.getTokenBalance(wallet);
-      await supabase.from('users').update({ ride_balance: onChainBalance }).eq('wallet', wallet);
+      const [rideResult, solResult] = await Promise.allSettled([
+        solana.getTokenBalance(wallet),
+        solana.getSolBalance(wallet),
+      ]);
+      if (rideResult.status === 'fulfilled') {
+        rideBalance = rideResult.value;
+        await supabase.from('users').update({ ride_balance: rideBalance }).eq('wallet', wallet);
+      }
+      if (solResult.status === 'fulfilled') solBalance = solResult.value;
     } catch (e) {
       console.warn('claim-all: failed to sync balance after transfer:', e.message);
     }
 
-    res.json({ success: true, amount: total, signature: sig });
+    res.json({ success: true, amount: total, signature: sig, rideBalance, solBalance });
   } catch (err) {
     console.error('claim-all failed:', err.message);
     res.status(500).json({ error: 'Blockchain transfer failed: ' + err.message });
